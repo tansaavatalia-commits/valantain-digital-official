@@ -27,7 +27,7 @@ jobs:
         run: sudo apt-get update && sudo apt-get install -y libpango-1.0-0 libpangoft2-1.0-0 libharfbuzz-subset0
       - run: pip install -e ".[ai]"
 
-      - uses: actions/cache@v4
+      - uses: actions/cache@v6
         with:
           path: dist
           key: dist-${{ github.run_id }}
