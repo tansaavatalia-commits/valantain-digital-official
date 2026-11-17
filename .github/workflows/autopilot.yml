@@ -18,8 +18,8 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 120
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
         with:
           python-version: "3.12"
           cache: pip
@@ -27,7 +27,7 @@ jobs:
         run: sudo apt-get update && sudo apt-get install -y libpango-1.0-0 libpangoft2-1.0-0 libharfbuzz-subset0
       - run: pip install -e ".[ai]"
 
-      - uses: actions/cache@v4
+      - uses: actions/cache@v6
         with:
           path: dist
           key: dist-${{ github.run_id }}
@@ -64,7 +64,7 @@ jobs:
           git commit -m "Pilota automatico: aggiornamento del $(date -u +%F)"
           git push
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         if: always()
         with:
           name: autopilot-${{ github.run_number }}
