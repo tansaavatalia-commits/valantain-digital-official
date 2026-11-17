@@ -203,3 +203,55 @@ def test_sales_report(tmp_path):
     assert sales == {"planner-sage": {"orders": 3, "revenue": 20.7}}
     text = path.read_text()
     assert "ultimi 7 giorni: **1**" in text and "6.90 EUR" in text
+
+
+def test_vault_roundtrip_and_wrong_key(tmp_path):
+    from factory.vault import seal, unseal
+
+    f = tmp_path / "t.enc"
+    seal(f, "1.segreto", "chiave")
+    assert b"segreto" not in f.read_bytes()
+    assert unseal(f, "chiave") == "1.segreto"
+    assert unseal(tmp_path / "manca.enc", "chiave") is None
+    with pytest.raises(RuntimeError):
+        unseal(f, "altra-chiave")
+
+
+def test_autopilot_rotates_token_into_vault(tmp_path, monkeypatch):
+    import factory.etsy as etsy_mod
+    from factory.autopilot import Paths, run
+    from factory.vault import TOKEN_FILE, seal, unseal
+
+    monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
+    monkeypatch.delenv("ETSY_REFRESH_TOKEN", raising=False)
+    monkeypatch.setenv("ETSY_KEYSTRING", "key")
+    monkeypatch.setenv("ETSY_SHARED_SECRET", "secret")
+    state = tmp_path / "state"
+    seal(state / TOKEN_FILE, "1.r-old", "secret")
+
+    def shop(request):
+        p = request.url.path
+        if p.endswith("/oauth/token"):
+            assert b"1.r-old" in request.content
+            return httpx.Response(200, json={"access_token": "1.a", "refresh_token": "1.r-rotated"})
+        if p.endswith("/users/me"):
+            return httpx.Response(200, json={"user_id": 1, "shop_id": 5})
+        if p.endswith("/receipts"):
+            return httpx.Response(200, json={"count": 0, "results": []})
+        if p.endswith("/seller-taxonomy/nodes"):
+            return httpx.Response(200, json={"results": [{"id": 77, "name": "Calendars & Planners"}]})
+        if p.endswith("/shops/5"):
+            return httpx.Response(200, json={"currency_code": "EUR"})
+        return FakeEtsy()(request)
+
+    real_client = httpx.Client
+    monkeypatch.setattr(etsy_mod.httpx, "Client",
+                        lambda **kw: real_client(transport=httpx.MockTransport(shop)))
+    cat = tmp_path / "catalog"
+    cat.mkdir()
+    (cat / "mini.yaml").write_text(json.dumps(tiny_spec().model_dump(mode="json")))
+    out = run(Config(), Paths(catalog=cat, dist=tmp_path / "dist", state=state,
+                              reports=tmp_path / "reports"))
+    assert not out.failed, out.lines
+    assert unseal(state / TOKEN_FILE, "secret") == "1.r-rotated"
+    assert load_state(state / "etsy.json")["mini-sage"]["step"] == "done"

@@ -64,31 +64,38 @@ def cmd_preview(args: argparse.Namespace) -> int:
 
 
 def cmd_etsy_start(args: argparse.Namespace) -> int:
-    """Passo 1 del collegamento: crea il link di autorizzazione e il verificatore PKCE."""
-    import json
+    """Passo 1 del collegamento: link di autorizzazione; il verificatore PKCE resta cifrato in state/."""
     import os
     import secrets
 
     from .etsy import authorize_url, make_pkce
+    from .vault import PKCE_FILE, seal
 
     verifier, challenge = make_pkce()
-    url = authorize_url(os.environ["ETSY_KEYSTRING"], args.redirect_uri, challenge,
-                        secrets.token_urlsafe(16))
-    Path(args.out).write_text(json.dumps({"verifier": verifier, "url": url}))
-    print(url)
+    seal(Path(args.state) / PKCE_FILE, verifier, os.environ["ETSY_SHARED_SECRET"])
+    print(authorize_url(os.environ["ETSY_KEYSTRING"], args.redirect_uri, challenge,
+                        secrets.token_urlsafe(16)))
     return 0
 
 
 def cmd_etsy_finish(args: argparse.Namespace) -> int:
-    """Passo 2: scambia il codice ricevuto da Etsy con un refresh token."""
+    """Passo 2: scambia il codice ricevuto da Etsy con un refresh token e lo salva cifrato."""
     import os
 
     from .etsy import Etsy, code_from_redirect, exchange_code
+    from .vault import PKCE_FILE, TOKEN_FILE, seal, unseal
 
+    secret = os.environ["ETSY_SHARED_SECRET"]
+    state = Path(args.state)
+    verifier = unseal(state / PKCE_FILE, secret)
+    if not verifier:
+        print("Manca il passo 1: avvia il collegamento senza «risposta».", file=sys.stderr)
+        return 2
     tokens = exchange_code(os.environ["ETSY_KEYSTRING"], args.redirect_uri,
-                           code_from_redirect(args.response), os.environ["ETSY_PKCE_VERIFIER"])
-    Path(args.out).write_text(tokens["refresh_token"])
-    client = Etsy(os.environ["ETSY_KEYSTRING"], os.environ["ETSY_SHARED_SECRET"], tokens["refresh_token"])
+                           code_from_redirect(args.response), verifier)
+    seal(state / TOKEN_FILE, tokens["refresh_token"], secret)
+    (state / PKCE_FILE).unlink()
+    client = Etsy(os.environ["ETSY_KEYSTRING"], secret, tokens["refresh_token"])
     client.access_token = tokens["access_token"]
     me = client.me()
     shop = client.shop(me["shop_id"])
@@ -101,8 +108,7 @@ def cmd_autopilot(args: argparse.Namespace) -> int:
     from .autopilot import Paths, run
     from .config import load_config
 
-    out = run(load_config(args.config), Paths(dist=Path(args.out)),
-              Path(args.refresh_token_out) if args.refresh_token_out else None)
+    out = run(load_config(args.config), Paths(dist=Path(args.out)))
     text = "## Pilota automatico\n\n" + "\n".join(out.lines) + "\n"
     print(text)
     if args.summary:
@@ -141,19 +147,18 @@ def main(argv: list[str] | None = None) -> int:
 
     es = sub.add_parser("etsy-start", help="collegamento Etsy, passo 1: link di autorizzazione")
     es.add_argument("--redirect-uri", required=True)
-    es.add_argument("--out", required=True, help="file JSON con verificatore e link")
+    es.add_argument("--state", default="state")
     es.set_defaults(fn=cmd_etsy_start)
 
     ef = sub.add_parser("etsy-finish", help="collegamento Etsy, passo 2: ottieni il refresh token")
     ef.add_argument("--redirect-uri", required=True)
     ef.add_argument("--response", required=True, help="URL completo su cui Etsy ti ha rimandato")
-    ef.add_argument("--out", required=True, help="file in cui scrivere il refresh token")
+    ef.add_argument("--state", default="state")
     ef.set_defaults(fn=cmd_etsy_finish)
 
     ap = sub.add_parser("autopilot", help="vendite, idee, produzione e pubblicazione in un colpo")
     ap.add_argument("--config", default="autopilot.yaml")
     ap.add_argument("--out", default="dist")
-    ap.add_argument("--refresh-token-out", help="dove salvare il nuovo refresh token Etsy")
     ap.add_argument("--summary", help="file Markdown a cui aggiungere il riepilogo")
     ap.set_defaults(fn=cmd_autopilot)
 

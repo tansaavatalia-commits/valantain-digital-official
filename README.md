@@ -130,32 +130,33 @@ Nessuna delle due piattaforme ha un import CSV ufficiale. Sono ottime per vender
 | 2. Idee | Claude legge catalogo e vendite e scrive nuove linee in `catalog/auto/` | senza `ANTHROPIC_API_KEY` nessuna nuova linea |
 | 3. Produzione | genera solo ciò che è nuovo o cambiato | — |
 | 4. Pubblicazione | una inserzione per linea e tema: immagini, file in tutte le lingue, traduzioni IT/ES, attivazione | si ferma al tetto settimanale; il resto va in coda |
-| 5. Salvataggio | commit di `catalog/`, `state/`, `reports/` e del nuovo token Etsy | — |
+| 5. Salvataggio | commit di `catalog/`, `state/` (compreso il token Etsy cifrato) e `reports/` | — |
 
 Garanzie:
 - **Nessun doppione.** Ogni passaggio di ogni inserzione viene salvato in `state/etsy.json`: un'esecuzione interrotta riprende da dove si era fermata.
 - **Spesa limitata.** `max_new_listings_per_run` (predefinito 10, cioè 2 $ a settimana di commissioni Etsy).
   Con `mode: draft` le inserzioni restano bozze da approvare a mano.
 - **Avvisi.** Se una fase fallisce il job diventa rosso e GitHub ti manda una email. Il riepilogo del job spiega cosa è successo.
-- **Token sempre valido.** Etsy rilascia un nuovo token a ogni rinnovo (dura 90 giorni). Il workflow lo salva da solo, anche quando il resto fallisce.
+- **Token sempre valido.** Etsy rilascia un nuovo token a ogni rinnovo (dura 90 giorni). Il pilota lo salva subito, cifrato, prima di ogni altra operazione.
 
 Costi indicativi: 0,20 $ per inserzione Etsy (rinnovo automatico ogni 4 mesi) più circa il 10% sulle vendite,
 e qualche decina di centesimi di Claude a settimana per idee e testi.
 
 ## Attivazione (una volta sola)
 
-Il pilota ha bisogno di quattro credenziali. Vanno inserite **solo** in GitHub, mai in chat:
+Servono solo **due** secret di Etsy (la chiave Anthropic è facoltativa). Vanno inseriti **solo** in GitHub, mai in chat:
 **Settings → Secrets and variables → Actions → New repository secret**.
 
 | Secret | Dove si ottiene |
 |---|---|
 | `ETSY_KEYSTRING` e `ETSY_SHARED_SECRET` | [etsy.com/developers/your-apps](https://www.etsy.com/developers/your-apps): crea l'app e copia *Keystring* e *Shared secret*. Come **Callback URL** inserisci esattamente `https://github.com/tansaavatalia-commits/valantain-digital-official` |
-| `ANTHROPIC_API_KEY` | [platform.claude.com](https://platform.claude.com) → API keys (serve credito prepagato) |
-| `SECRETS_TOKEN` | GitHub → Settings → Developer settings → **Fine-grained tokens**: solo questo repository, permesso **Secrets: Read and write**. Serve al pilota per salvare il token Etsy rinnovato |
+| `ANTHROPIC_API_KEY` (facoltativo) | [platform.claude.com](https://platform.claude.com) → API keys. Senza questa chiave il pilota usa testi standard e non inventa nuove linee |
 
 Poi collega il negozio: **Actions → Collega Etsy → Run workflow** due volte.
 La prima volta lascia vuoto il campo e apri il link che compare nel riepilogo.
 La seconda volta incolla l'indirizzo su cui Etsy ti ha rimandato.
+Il token Etsy viene salvato **cifrato** in `state/etsy-token.enc`, con una chiave derivata da `ETSY_SHARED_SECRET`,
+e il pilota lo rinnova da solo a ogni esecuzione.
 Da quel momento il pilota parte ogni lunedì; per una prova immediata: **Actions → Pilota automatico → Run workflow**.
 
 ## Prossimi passi possibili

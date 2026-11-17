@@ -41,18 +41,29 @@ def has_claude() -> bool:
     return bool(os.environ.get("ANTHROPIC_API_KEY") or os.environ.get("ANTHROPIC_AUTH_TOKEN"))
 
 
-def etsy_from_env():
+def etsy_from_env(state_dir: Path):
+    """Client Etsy da secret + token cifrato in state/ (o ETSY_REFRESH_TOKEN, se impostato)."""
     from .etsy import Etsy
+    from .vault import TOKEN_FILE, unseal
 
-    keys = ("ETSY_KEYSTRING", "ETSY_SHARED_SECRET", "ETSY_REFRESH_TOKEN")
-    if not all(os.environ.get(k) for k in keys):
+    key, secret = os.environ.get("ETSY_KEYSTRING"), os.environ.get("ETSY_SHARED_SECRET")
+    if not (key and secret):
         return None
-    return Etsy(*(os.environ[k] for k in keys))
+    token = os.environ.get("ETSY_REFRESH_TOKEN") or unseal(state_dir / TOKEN_FILE, secret)
+    return Etsy(key, secret, token) if token else None
 
 
-def run(cfg: Config, paths: Paths, refresh_token_out: Path | None) -> Outcome:
+def run(cfg: Config, paths: Paths, refresh_token_out: Path | None = None) -> Outcome:
+    from .vault import TOKEN_FILE, seal
+
     out = Outcome()
-    client = etsy_from_env() if cfg.etsy.enabled else None
+    client = None
+    if cfg.etsy.enabled:
+        try:
+            client = etsy_from_env(paths.state)
+        except RuntimeError as exc:
+            out.add(f"⚠️ {exc}")
+            out.failed = True
     shop_id = None
 
     # 1. Etsy: rinnovo token (salvato SUBITO: il vecchio potrebbe non valere più) e vendite
@@ -62,6 +73,8 @@ def run(cfg: Config, paths: Paths, refresh_token_out: Path | None) -> Outcome:
 
         try:
             new_token = client.refresh()
+            # salvato SUBITO, cifrato: il vecchio token potrebbe non valere più
+            seal(paths.state / TOKEN_FILE, new_token, os.environ["ETSY_SHARED_SECRET"])
             if refresh_token_out:
                 refresh_token_out.write_text(new_token)
             me = client.me()

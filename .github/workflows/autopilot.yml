@@ -40,19 +40,8 @@ jobs:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
           ETSY_KEYSTRING: ${{ secrets.ETSY_KEYSTRING }}
           ETSY_SHARED_SECRET: ${{ secrets.ETSY_SHARED_SECRET }}
-          ETSY_REFRESH_TOKEN: ${{ secrets.ETSY_REFRESH_TOKEN }}
         run: |
-          python -m factory -v autopilot --refresh-token-out "$RUNNER_TEMP/rt" \
-            --summary "$GITHUB_STEP_SUMMARY"
-
-      # Etsy rilascia un nuovo refresh token a ogni rinnovo: va salvato anche se il resto è fallito.
-      - name: Salva il nuovo token Etsy
-        if: always()
-        env:
-          GH_TOKEN: ${{ secrets.SECRETS_TOKEN }}
-        run: |
-          [ -s "$RUNNER_TEMP/rt" ] || { echo "nessun token da salvare"; exit 0; }
-          gh secret set ETSY_REFRESH_TOKEN --repo "$GITHUB_REPOSITORY" < "$RUNNER_TEMP/rt"
+          python -m factory -v autopilot --summary "$GITHUB_STEP_SUMMARY"
 
       - name: Salva catalogo, stato e report nel repository
         if: always()
@@ -62,6 +51,7 @@ jobs:
           git add catalog state reports 2>/dev/null || true
           if git diff --cached --quiet; then echo "niente da salvare"; exit 0; fi
           git commit -m "Pilota automatico: aggiornamento del $(date -u +%F)"
+          git pull --rebase -q || true
           git push
 
       - uses: actions/upload-artifact@v7
