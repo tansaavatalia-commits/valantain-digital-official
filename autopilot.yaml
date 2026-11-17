@@ -1,0 +1,18 @@
+# Configurazione del pilota automatico. Lo legge il workflow settimanale.
+
+etsy:
+  enabled: true
+  # active = pubblicate subito (0,20 $ l'una); draft = restano bozze da controllare
+  mode: active
+  # tetto di nuove inserzioni per esecuzione: limita la spesa (10 x 0,20 $ = 2 $ a settimana)
+  max_new_listings_per_run: 10
+  language: en                 # lingua principale delle inserzioni; le altre diventano traduzioni
+  taxonomy_name: Calendars & Planners
+  quantity: 999                # i prodotti digitali non finiscono: Etsy richiede comunque un numero
+
+ideas:
+  enabled: true
+  lines_per_run: 1             # nuove linee di prodotto inventate da Claude a ogni esecuzione
+  max_auto_lines: 40           # oltre questo numero il pilota smette di inventare linee
+
+copy_engine: claude            # testi delle inserzioni: claude oppure template

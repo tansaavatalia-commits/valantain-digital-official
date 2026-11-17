@@ -152,7 +152,7 @@ def load_spec(path: str | Path) -> LineSpec:
 def load_catalog(paths: list[str | Path]) -> list[LineSpec]:
     files: list[Path] = []
     for p in map(Path, paths):
-        files.extend(sorted(p.glob("*.y*ml")) if p.is_dir() else [p])
+        files.extend(sorted(p.rglob("*.y*ml")) if p.is_dir() else [p])
     specs = [load_spec(f) for f in files]
     seen: set[str] = set()
     for s in specs:

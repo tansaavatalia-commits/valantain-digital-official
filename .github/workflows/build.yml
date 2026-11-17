@@ -17,7 +17,7 @@ on:
         type: boolean
         default: false
   push:
-    branches: [main]
+    branches: ["**"]
     tags: ["v*"]  # i filtri sui percorsi non si applicano ai tag
     paths: ["catalog/**", "factory/**"]
 

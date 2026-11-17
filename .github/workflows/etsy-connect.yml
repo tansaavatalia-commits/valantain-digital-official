@@ -1,0 +1,74 @@
+name: Collega Etsy
+
+# Da avviare a mano due volte:
+#  1) senza «risposta»: il riepilogo del job mostra il link per autorizzare l'app sul tuo negozio
+#  2) incollando in «risposta» l'indirizzo completo su cui Etsy ti ha rimandato
+on:
+  workflow_dispatch:
+    inputs:
+      risposta:
+        description: "Passo 2: incolla qui l'indirizzo completo della pagina dopo l'autorizzazione (vuoto = passo 1)"
+        required: false
+        default: ""
+
+permissions:
+  contents: read
+
+concurrency: etsy-connect
+
+jobs:
+  connect:
+    runs-on: ubuntu-latest
+    env:
+      REDIRECT_URI: https://github.com/${{ github.repository }}
+      ETSY_KEYSTRING: ${{ secrets.ETSY_KEYSTRING }}
+      ETSY_SHARED_SECRET: ${{ secrets.ETSY_SHARED_SECRET }}
+      GH_TOKEN: ${{ secrets.SECRETS_TOKEN }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - run: pip install httpx pydantic pyyaml && pip install --no-deps -e .
+
+      - name: Controllo dei secret
+        run: |
+          missing=""
+          for s in ETSY_KEYSTRING ETSY_SHARED_SECRET GH_TOKEN; do
+            [ -n "${!s}" ] || missing="$missing $s"
+          done
+          if [ -n "$missing" ]; then
+            echo "::error::Mancano i secret:$missing (GH_TOKEN corrisponde al secret SECRETS_TOKEN)"
+            exit 1
+          fi
+
+      - name: Passo 1 - link di autorizzazione
+        if: inputs.risposta == ''
+        run: |
+          python -m factory etsy-start --redirect-uri "$REDIRECT_URI" --out "$RUNNER_TEMP/pkce.json" > /dev/null
+          jq -r .verifier "$RUNNER_TEMP/pkce.json" | gh secret set ETSY_PKCE_VERIFIER --repo "$GITHUB_REPOSITORY"
+          url=$(jq -r .url "$RUNNER_TEMP/pkce.json")
+          {
+            echo "## Collega il tuo negozio Etsy"
+            echo
+            echo "1. Apri questo link e premi **Grant access / Consenti**:"
+            echo
+            echo "   $url"
+            echo
+            echo "2. Etsy ti riporta su GitHub. Copia l'indirizzo **completo** dalla barra del browser"
+            echo "   (contiene \`code=\`)."
+            echo "3. Avvia di nuovo questo workflow incollandolo nel campo **risposta**. Hai circa 10 minuti."
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Passo 2 - salva il collegamento
+        if: inputs.risposta != ''
+        env:
+          ETSY_PKCE_VERIFIER: ${{ secrets.ETSY_PKCE_VERIFIER }}
+          RISPOSTA: ${{ inputs.risposta }}
+        run: |
+          python -m factory etsy-finish --redirect-uri "$REDIRECT_URI" --response "$RISPOSTA" \
+            --out "$RUNNER_TEMP/rt" | tee -a "$GITHUB_STEP_SUMMARY"
+          gh secret set ETSY_REFRESH_TOKEN --repo "$GITHUB_REPOSITORY" < "$RUNNER_TEMP/rt"
+          gh secret delete ETSY_PKCE_VERIFIER --repo "$GITHUB_REPOSITORY" || true
+          echo "Fatto: il pilota automatico ora può pubblicare." >> "$GITHUB_STEP_SUMMARY"

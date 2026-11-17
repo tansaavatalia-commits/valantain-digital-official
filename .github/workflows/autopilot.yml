@@ -1,0 +1,82 @@
+name: Pilota automatico
+
+# Ogni lunedì: legge le vendite, inventa nuove linee, produce, pubblica su Etsy e scrive il report.
+on:
+  schedule:
+    - cron: "17 5 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: autopilot
+  cancel-in-progress: false
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - name: Librerie di sistema per WeasyPrint
+        run: sudo apt-get update && sudo apt-get install -y libpango-1.0-0 libpangoft2-1.0-0 libharfbuzz-subset0
+      - run: pip install -e ".[ai]"
+
+      - uses: actions/cache@v4
+        with:
+          path: dist
+          key: dist-${{ github.run_id }}
+          restore-keys: dist-
+
+      - name: Pilota automatico
+        id: run
+        continue-on-error: true
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          ETSY_KEYSTRING: ${{ secrets.ETSY_KEYSTRING }}
+          ETSY_SHARED_SECRET: ${{ secrets.ETSY_SHARED_SECRET }}
+          ETSY_REFRESH_TOKEN: ${{ secrets.ETSY_REFRESH_TOKEN }}
+        run: |
+          python -m factory -v autopilot --refresh-token-out "$RUNNER_TEMP/rt" \
+            --summary "$GITHUB_STEP_SUMMARY"
+
+      # Etsy rilascia un nuovo refresh token a ogni rinnovo: va salvato anche se il resto è fallito.
+      - name: Salva il nuovo token Etsy
+        if: always()
+        env:
+          GH_TOKEN: ${{ secrets.SECRETS_TOKEN }}
+        run: |
+          [ -s "$RUNNER_TEMP/rt" ] || { echo "nessun token da salvare"; exit 0; }
+          gh secret set ETSY_REFRESH_TOKEN --repo "$GITHUB_REPOSITORY" < "$RUNNER_TEMP/rt"
+
+      - name: Salva catalogo, stato e report nel repository
+        if: always()
+        run: |
+          git config user.name "valantain-autopilot"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add catalog state reports 2>/dev/null || true
+          if git diff --cached --quiet; then echo "niente da salvare"; exit 0; fi
+          git commit -m "Pilota automatico: aggiornamento del $(date -u +%F)"
+          git push
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: autopilot-${{ github.run_number }}
+          path: |
+            dist/catalog.csv
+            dist/*/*/*.zip
+            dist/*/*/images/01-copertina.jpg
+          retention-days: 14
+          if-no-files-found: ignore
+
+      - name: Esito
+        if: steps.run.outcome == 'failure'
+        run: |
+          echo "::error::Il pilota automatico ha avuto problemi: leggi il riepilogo del job."
+          exit 1

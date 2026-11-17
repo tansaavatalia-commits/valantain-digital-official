@@ -63,6 +63,54 @@ def cmd_preview(args: argparse.Namespace) -> int:
     return 2
 
 
+def cmd_etsy_start(args: argparse.Namespace) -> int:
+    """Passo 1 del collegamento: crea il link di autorizzazione e il verificatore PKCE."""
+    import json
+    import os
+    import secrets
+
+    from .etsy import authorize_url, make_pkce
+
+    verifier, challenge = make_pkce()
+    url = authorize_url(os.environ["ETSY_KEYSTRING"], args.redirect_uri, challenge,
+                        secrets.token_urlsafe(16))
+    Path(args.out).write_text(json.dumps({"verifier": verifier, "url": url}))
+    print(url)
+    return 0
+
+
+def cmd_etsy_finish(args: argparse.Namespace) -> int:
+    """Passo 2: scambia il codice ricevuto da Etsy con un refresh token."""
+    import os
+
+    from .etsy import Etsy, code_from_redirect, exchange_code
+
+    tokens = exchange_code(os.environ["ETSY_KEYSTRING"], args.redirect_uri,
+                           code_from_redirect(args.response), os.environ["ETSY_PKCE_VERIFIER"])
+    Path(args.out).write_text(tokens["refresh_token"])
+    client = Etsy(os.environ["ETSY_KEYSTRING"], os.environ["ETSY_SHARED_SECRET"], tokens["refresh_token"])
+    client.access_token = tokens["access_token"]
+    me = client.me()
+    shop = client.shop(me["shop_id"])
+    print(f"Collegato al negozio «{shop.get('shop_name')}» (id {me['shop_id']}, valuta "
+          f"{shop.get('currency_code')}). Permessi: {tokens.get('scope')}")
+    return 0
+
+
+def cmd_autopilot(args: argparse.Namespace) -> int:
+    from .autopilot import Paths, run
+    from .config import load_config
+
+    out = run(load_config(args.config), Paths(dist=Path(args.out)),
+              Path(args.refresh_token_out) if args.refresh_token_out else None)
+    text = "## Pilota automatico\n\n" + "\n".join(out.lines) + "\n"
+    print(text)
+    if args.summary:
+        with open(args.summary, "a", encoding="utf-8") as f:
+            f.write(text)
+    return 1 if out.failed else 0
+
+
 def main(argv: list[str] | None = None) -> int:
     p = argparse.ArgumentParser(prog="factory", description="Fabbrica di prodotti digitali stampabili")
     p.add_argument("-v", "--verbose", action="store_true")
@@ -90,6 +138,24 @@ def main(argv: list[str] | None = None) -> int:
     pv.add_argument("--size", default="A4")
     pv.add_argument("--out", default="dist/preview")
     pv.set_defaults(fn=cmd_preview)
+
+    es = sub.add_parser("etsy-start", help="collegamento Etsy, passo 1: link di autorizzazione")
+    es.add_argument("--redirect-uri", required=True)
+    es.add_argument("--out", required=True, help="file JSON con verificatore e link")
+    es.set_defaults(fn=cmd_etsy_start)
+
+    ef = sub.add_parser("etsy-finish", help="collegamento Etsy, passo 2: ottieni il refresh token")
+    ef.add_argument("--redirect-uri", required=True)
+    ef.add_argument("--response", required=True, help="URL completo su cui Etsy ti ha rimandato")
+    ef.add_argument("--out", required=True, help="file in cui scrivere il refresh token")
+    ef.set_defaults(fn=cmd_etsy_finish)
+
+    ap = sub.add_parser("autopilot", help="vendite, idee, produzione e pubblicazione in un colpo")
+    ap.add_argument("--config", default="autopilot.yaml")
+    ap.add_argument("--out", default="dist")
+    ap.add_argument("--refresh-token-out", help="dove salvare il nuovo refresh token Etsy")
+    ap.add_argument("--summary", help="file Markdown a cui aggiungere il riepilogo")
+    ap.set_defaults(fn=cmd_autopilot)
 
     args = p.parse_args(argv)
     logging.basicConfig(level=logging.INFO if args.verbose else logging.WARNING,

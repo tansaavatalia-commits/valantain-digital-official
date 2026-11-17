@@ -1,5 +1,11 @@
 # Valantain Digital: fabbrica di stampabili
 
+> **Pilota automatico.** Ogni lunedì GitHub esegue da solo l'intero ciclo:
+> legge le vendite su Etsy → Claude inventa una nuova linea di prodotti in base a ciò che vende →
+> la fabbrica produce PDF, immagini e testi → pubblica le nuove inserzioni su Etsy (massimo 10 a settimana) →
+> salva catalogo, stato e report nel repository. Il cliente riceve i file automaticamente da Etsy.
+> Configurazione in [`autopilot.yaml`](autopilot.yaml), istruzioni di attivazione in fondo a questa pagina.
+
 Questo repository produce in serie prodotti digitali stampabili: planner, tracker, budget e checklist.
 Ogni prodotto esce pronto da vendere su **Etsy**, **Gumroad** e **Payhip**.
 
@@ -116,9 +122,43 @@ qualcosa che può rompersi. Questi coprono l'intera catena dall'idea al file ven
 **Gumroad / Payhip**: crea il prodotto, allega lo ZIP e usa `gumroad-payhip.csv` come scheda (nome, prezzo, descrizione, copertina).
 Nessuna delle due piattaforme ha un import CSV ufficiale. Sono ottime per vendere ai tuoi follower e non hanno costi per inserzione.
 
+## Pilota automatico: come funziona
+
+| Fase | Cosa succede | Se qualcosa manca |
+|---|---|---|
+| 1. Vendite | rinnova l'accesso a Etsy, scarica gli ordini, scrive `reports/<data>.md` e `state/sales.json` | senza collegamento Etsy la fase viene saltata |
+| 2. Idee | Claude legge catalogo e vendite e scrive nuove linee in `catalog/auto/` | senza `ANTHROPIC_API_KEY` nessuna nuova linea |
+| 3. Produzione | genera solo ciò che è nuovo o cambiato | — |
+| 4. Pubblicazione | una inserzione per linea e tema: immagini, file in tutte le lingue, traduzioni IT/ES, attivazione | si ferma al tetto settimanale; il resto va in coda |
+| 5. Salvataggio | commit di `catalog/`, `state/`, `reports/` e del nuovo token Etsy | — |
+
+Garanzie:
+- **Nessun doppione.** Ogni passaggio di ogni inserzione viene salvato in `state/etsy.json`: un'esecuzione interrotta riprende da dove si era fermata.
+- **Spesa limitata.** `max_new_listings_per_run` (predefinito 10, cioè 2 $ a settimana di commissioni Etsy).
+  Con `mode: draft` le inserzioni restano bozze da approvare a mano.
+- **Avvisi.** Se una fase fallisce il job diventa rosso e GitHub ti manda una email. Il riepilogo del job spiega cosa è successo.
+- **Token sempre valido.** Etsy rilascia un nuovo token a ogni rinnovo (dura 90 giorni). Il workflow lo salva da solo, anche quando il resto fallisce.
+
+Costi indicativi: 0,20 $ per inserzione Etsy (rinnovo automatico ogni 4 mesi) più circa il 10% sulle vendite,
+e qualche decina di centesimi di Claude a settimana per idee e testi.
+
+## Attivazione (una volta sola)
+
+Il pilota ha bisogno di quattro credenziali. Vanno inserite **solo** in GitHub, mai in chat:
+**Settings → Secrets and variables → Actions → New repository secret**.
+
+| Secret | Dove si ottiene |
+|---|---|
+| `ETSY_KEYSTRING` e `ETSY_SHARED_SECRET` | [etsy.com/developers/your-apps](https://www.etsy.com/developers/your-apps): crea l'app e copia *Keystring* e *Shared secret*. Come **Callback URL** inserisci esattamente `https://github.com/tansaavatalia-commits/valantain-digital-official` |
+| `ANTHROPIC_API_KEY` | [platform.claude.com](https://platform.claude.com) → API keys (serve credito prepagato) |
+| `SECRETS_TOKEN` | GitHub → Settings → Developer settings → **Fine-grained tokens**: solo questo repository, permesso **Secrets: Read and write**. Serve al pilota per salvare il token Etsy rinnovato |
+
+Poi collega il negozio: **Actions → Collega Etsy → Run workflow** due volte.
+La prima volta lascia vuoto il campo e apri il link che compare nel riepilogo.
+La seconda volta incolla l'indirizzo su cui Etsy ti ha rimandato.
+Da quel momento il pilota parte ogni lunedì; per una prova immediata: **Actions → Pilota automatico → Run workflow**.
+
 ## Prossimi passi possibili
 
-- **Pubblicazione automatica su Etsy** tramite Open API v3 (bozze di inserzioni con immagini e file).
-  Servono una app Etsy approvata e il dominio `openapi.etsy.com` abilitato nell'ambiente.
-- Nuove linee: meal planner, planner per studenti, wedding planner, fitness tracker.
-- Pin Pinterest generati dalle stesse pagine (formato verticale 1000×1500).
+- Pin Pinterest generati dalle stesse pagine (formato verticale 1000×1500) per portare traffico esterno.
+- Aggiornamento automatico delle inserzioni già pubblicate quando cambia il design.
