@@ -64,7 +64,7 @@ jobs:
           git commit -m "Pilota automatico: aggiornamento del $(date -u +%F)"
           git push
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         if: always()
         with:
           name: autopilot-${{ github.run_number }}
