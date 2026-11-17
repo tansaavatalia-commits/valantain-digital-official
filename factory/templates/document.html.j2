@@ -1,0 +1,216 @@
+{#- Un solo template: ogni pagina è una macro. Unità in mm, calcolate da `g` (geometria). -#}
+<!doctype html>
+<html lang="{{ lang }}">
+<head>
+<meta charset="utf-8">
+<title>{{ name }}</title>
+<style>
+@font-face { font-family: "Inter"; src: url("{{ fonts }}/Inter-Variable.ttf"); font-weight: 100 900; }
+@font-face { font-family: "Fraunces"; src: url("{{ fonts }}/Fraunces-Variable.ttf"); font-weight: 100 900; }
+@page { size: {{ g.w }}mm {{ g.h }}mm; margin: {{ g.m }}mm; }
+* { box-sizing: border-box; }
+html { font-family: "Inter", sans-serif; color: {{ t.ink }}; font-size: {{ g.fs }}pt; }
+body { margin: 0; }
+a { color: inherit; text-decoration: none; }
+.page { height: {{ g.ch }}mm; page-break-after: always; position: relative; overflow: hidden; }
+.page:last-child { page-break-after: auto; }
+.hd { height: {{ g.hd }}mm; display: flex; align-items: flex-end; justify-content: space-between;
+      border-bottom: 0.6mm solid {{ t.accent }}; padding-bottom: 2mm; margin-bottom: 4mm; }
+.hd h1 { font-family: "Fraunces", serif; font-weight: 500; font-size: 2.1em; margin: 0; line-height: 1; }
+.hd .sub { color: {{ t.muted }}; font-size: .95em; margin-left: 3mm; }
+.hd .home { font-size: .75em; color: {{ t.muted }}; letter-spacing: .08em; text-transform: uppercase; }
+.lbl { font-size: .72em; letter-spacing: .1em; text-transform: uppercase; color: {{ t.muted }}; font-weight: 600; }
+.box { border: 0.3mm solid {{ t.line }}; border-radius: 1.5mm; padding: 2mm 2.5mm; }
+.rule { border-bottom: 0.25mm solid {{ t.line }}; }
+.cb { display: inline-block; width: 3.2mm; height: 3.2mm; border: 0.3mm solid {{ t.muted }}; border-radius: .6mm; vertical-align: middle; margin-right: 2mm; }
+table { border-collapse: collapse; width: 100%; }
+.foot { position: absolute; bottom: 0; left: 0; right: 0; text-align: center; font-size: .6em; color: {{ t.muted }}; }
+
+/* cover */
+.cover { display: flex; flex-direction: column; justify-content: center; align-items: center; text-align: center; }
+.cover .band { width: 100%; background: {{ t.accent_soft }}; border-top: 1mm solid {{ t.accent }};
+               border-bottom: 1mm solid {{ t.accent }}; padding: {{ g.ch * 0.08 }}mm 8mm; }
+.cover h1 { font-family: "Fraunces", serif; font-weight: 400; font-size: 4.2em; margin: 0 0 3mm; line-height: 1.05; }
+.cover .sub { color: {{ t.muted }}; font-size: 1.25em; }
+.cover .yr { font-family: "Fraunces", serif; font-size: 2.4em; color: {{ t.accent }}; margin-top: 8mm; }
+.cover .owner { margin-top: {{ g.ch * 0.12 }}mm; width: 60%; text-align: left; }
+
+/* index */
+.toc a { display: flex; justify-content: space-between; padding: 2.6mm 0; border-bottom: 0.25mm dotted {{ t.line }}; font-size: 1.15em; }
+.toc a span:last-child { color: {{ t.accent }}; }
+
+/* calendar grids */
+.cal { table-layout: fixed; }
+.cal th { font-size: .75em; color: {{ t.muted }}; font-weight: 600; padding: 1.5mm 0; letter-spacing: .08em; text-transform: uppercase; }
+.cal td { border: 0.3mm solid {{ t.line }}; vertical-align: top; padding: 1.2mm 1.5mm; font-size: .85em; }
+.cal td.empty { background: {{ t.accent_soft }}; }
+.mini { table-layout: fixed; }
+.mini td, .mini th { text-align: center; font-size: .62em; padding: .5mm 0; }
+.mini th { color: {{ t.accent }}; }
+.months { display: grid; grid-template-columns: repeat(3, 1fr); gap: 4mm; }
+.months .box h3 { font-family: "Fraunces", serif; font-weight: 500; margin: 0 0 1.5mm; font-size: 1.05em; }
+
+/* weekly */
+.week { display: grid; grid-template-columns: 1fr 1fr; gap: 3mm; }
+.day { height: {{ (g.ch - g.hd - 6 - 9) / 4 }}mm; }
+.day .dn { display: flex; justify-content: space-between; align-items: baseline; border-bottom: 0.4mm solid {{ t.accent }}; padding-bottom: 1mm; margin-bottom: 1mm; }
+.day .dn b { font-family: "Fraunces", serif; font-weight: 500; font-size: 1.1em; }
+.day .dn span { color: {{ t.accent }}; font-weight: 600; }
+.day .ln { height: 6.2mm; }
+
+/* tables */
+.grid-t td, .grid-t th { border: 0.25mm solid {{ t.line }}; }
+.grid-t th { background: {{ t.accent_soft }}; font-size: .7em; font-weight: 600; padding: 1.2mm; text-align: left; }
+.habit td { height: {{ g.row }}mm; }
+.habit th.d, .habit td.d { width: {{ (g.cw * 0.72) / 31 }}mm; text-align: center; padding: 0; font-size: .55em; }
+.budget td { height: {{ g.row }}mm; }
+.sec { margin-bottom: 5mm; }
+.sec h2 { font-family: "Fraunces", serif; font-weight: 500; font-size: 1.3em; margin: 0 0 2mm; color: {{ t.accent }}; }
+
+/* checklist / goals / notes / daily */
+.chk div { height: {{ g.row + 1.5 }}mm; display: flex; align-items: center; border-bottom: 0.25mm solid {{ t.line }}; }
+.goal { margin-bottom: 4mm; }
+.goal .gt { height: 9mm; border-bottom: 0.5mm solid {{ t.accent }}; margin-bottom: 2mm; }
+.goal .ln { height: 6mm; }
+.notes-area { height: {{ g.ch - g.hd - 8 }}mm; }
+.ruled .ln { height: 7.5mm; }
+.dots { background-image: radial-gradient(circle, {{ t.muted }} 0.28mm, transparent 0.34mm); background-size: 5mm 5mm; background-position: 2.5mm 2.5mm; }
+.squares { background-image: linear-gradient({{ t.line }} 0.2mm, transparent 0.2mm), linear-gradient(90deg, {{ t.line }} 0.2mm, transparent 0.2mm); background-size: 5mm 5mm; }
+.daily { display: grid; grid-template-columns: 1.15fr 1fr; gap: 4mm; }
+.hour { height: {{ (g.ch - g.hd - 14) / 16 }}mm; display: flex; align-items: flex-start; border-bottom: 0.25mm solid {{ t.line }}; }
+.hour span { width: 9mm; font-size: .72em; color: {{ t.muted }}; padding-top: .6mm; }
+.circles span { display: inline-block; width: 4.6mm; height: 4.6mm; border: 0.3mm solid {{ t.accent }}; border-radius: 50%; margin-right: 1.4mm; }
+</style>
+</head>
+<body>
+
+{%- macro header(p, sub="") -%}
+<div class="hd">
+  <div><h1>{{ p.title }}</h1>{% if sub %}<span class="sub">{{ sub }}</span>{% endif %}</div>
+  {% if has_index %}<a class="home" href="#{{ index_id }}">{{ lab.home }} ↩</a>{% endif %}
+</div>
+{%- endmacro -%}
+
+{%- macro lines(n, cls="ln rule") -%}{% for _ in range(n) %}<div class="{{ cls }}"></div>{% endfor %}{%- endmacro -%}
+
+{% for p in pages %}
+<section class="page" id="{{ p.id }}">
+{% if p.type == "cover" %}
+  <div class="cover" style="height:{{ g.ch }}mm">
+    <div class="band">
+      <h1>{{ p.title }}</h1>
+      {% if p.subtitle %}<div class="sub">{{ p.subtitle }}</div>{% endif %}
+      {% if p.year %}<div class="yr">{{ p.year }}</div>{% endif %}
+    </div>
+    <div class="owner"><div class="lbl">{{ lab.owner }}</div><div class="rule" style="height:9mm"></div></div>
+  </div>
+
+{% elif p.type == "index" %}
+  {{ header(p) }}
+  <div class="toc">
+    {% for s in p.sections %}<a href="#{{ s.id }}"><span>{{ s.title }}</span><span>→</span></a>{% endfor %}
+  </div>
+
+{% elif p.type == "year" %}
+  {{ header(p) }}
+  <div class="months">
+  {% for m in p.months %}
+    <div class="box"><h3>{{ m.name }}</h3>
+      <table class="mini"><tr>{% for d in lab.days_short %}<th>{{ d }}</th>{% endfor %}</tr>
+      {% for wk in m.grid %}<tr>{% for d in wk %}<td>{{ d or "" }}</td>{% endfor %}</tr>{% endfor %}
+      {% for _ in range(6 - m.grid|length) %}<tr>{% for _ in range(7) %}<td>&nbsp;</td>{% endfor %}</tr>{% endfor %}
+      </table>
+    </div>
+  {% endfor %}
+  </div>
+
+{% elif p.type == "monthly" %}
+  {{ header(p) }}
+  {% set rows = p.grid|length %}
+  <table class="cal">
+    <tr>{% for d in lab.days %}<th>{{ d[:3] }}</th>{% endfor %}</tr>
+    {% for wk in p.grid %}<tr>{% for d in wk %}
+      <td class="{{ 'empty' if (d is none and year) else '' }}" style="height:{{ (g.ch - g.hd - 10 - 34) / rows }}mm">{{ d or "" }}</td>
+    {% endfor %}</tr>{% endfor %}
+  </table>
+  <div class="box" style="margin-top:3mm;height:28mm"><div class="lbl">{{ lab.notes }}</div></div>
+
+{% elif p.type == "weekly" %}
+  {{ header(p, p.subtitle) }}
+  <div class="week">
+  {% for d in p.days %}
+    <div class="box day">
+      <div class="dn"><b>{{ d.name }}</b>{% if d.date %}<span>{{ d.date }} {{ d.month }}</span>{% else %}<span class="lbl">{{ lab.date }} ____</span>{% endif %}</div>
+      {{ lines(g.day_lines) }}
+    </div>
+  {% endfor %}
+    <div class="box day">
+      <div class="dn"><b>{{ lab.priorities }}</b></div>
+      {% for _ in range(g.day_lines) %}<div class="ln rule" style="display:flex;align-items:center"><span class="cb"></span></div>{% endfor %}
+    </div>
+  </div>
+
+{% elif p.type == "daily" %}
+  {{ header(p, lab.date ~ ": ____ / ____ / ________") }}
+  <div class="daily">
+    <div>
+      <div class="lbl" style="margin-bottom:1mm">{{ lab.schedule }}</div>
+      {% for h in range(6, 22) %}<div class="hour"><span>{{ "%02d"|format(h) }}:00</span></div>{% endfor %}
+    </div>
+    <div>
+      <div class="box sec"><div class="lbl">{{ lab.top3 }}</div>{% for i in range(3) %}<div class="ln rule" style="height:8mm;display:flex;align-items:center"><span class="cb"></span></div>{% endfor %}</div>
+      <div class="box sec"><div class="lbl">{{ lab.todo }}</div>{% for i in range(g.todo_rows) %}<div class="ln rule" style="height:7mm;display:flex;align-items:center"><span class="cb"></span></div>{% endfor %}</div>
+      <div class="box sec"><div class="lbl">{{ lab.gratitude }}</div>{% for _ in range(3) %}<div class="rule" style="height:7mm"></div>{% endfor %}</div>
+      <div class="box sec"><div class="lbl">{{ lab.water }}</div><div class="circles" style="margin-top:2mm">{% for _ in range(8) %}<span></span>{% endfor %}</div></div>
+    </div>
+  </div>
+
+{% elif p.type == "habit" %}
+  {{ header(p, lab.month ~ ": ________________") }}
+  <table class="grid-t habit">
+    <tr><th>{{ lab.habit }}</th>{% for d in range(1, 32) %}<th class="d">{{ d }}</th>{% endfor %}</tr>
+    {% for _ in range(g.habit_rows) %}<tr><td></td>{% for d in range(31) %}<td class="d"></td>{% endfor %}</tr>{% endfor %}
+  </table>
+
+{% elif p.type == "budget" %}
+  {{ header(p, lab.month ~ ": ________________") }}
+  {% set cats = p.options.get("categories", {}).get(lang, []) %}
+  <div class="sec"><h2>{{ lab.income }}</h2>
+    <table class="grid-t budget"><tr><th style="width:50%">{{ lab.category }}</th><th>{{ lab.planned }}</th><th>{{ lab.actual }}</th></tr>
+    {% for _ in range(4) %}<tr><td></td><td></td><td></td></tr>{% endfor %}
+    <tr><th>{{ lab.total }}</th><td></td><td></td></tr></table></div>
+  <div class="sec"><h2>{{ lab.expenses }}</h2>
+    <table class="grid-t budget"><tr><th style="width:50%">{{ lab.category }}</th><th>{{ lab.planned }}</th><th>{{ lab.actual }}</th></tr>
+    {% for i in range(g.budget_rows) %}<tr><td style="padding-left:2mm;font-size:.85em">{{ cats[i] if i < cats|length else "" }}</td><td></td><td></td></tr>{% endfor %}
+    <tr><th>{{ lab.total }}</th><td></td><td></td></tr></table></div>
+  <div class="box" style="display:flex;justify-content:space-between;align-items:center;height:14mm">
+    <span class="lbl">{{ lab.savings }}</span><span style="width:45%" class="rule">&nbsp;</span></div>
+
+{% elif p.type == "checklist" %}
+  {{ header(p, "________________________") }}
+  <div class="chk">{% for _ in range(g.check_rows) %}<div><span class="cb"></span></div>{% endfor %}</div>
+
+{% elif p.type == "goals" %}
+  {{ header(p) }}
+  {% for n in range(3) %}
+  <div class="box goal">
+    <div class="gt"><span class="lbl">{{ lab.goal }} {{ n + 1 }}</span></div>
+    <div class="lbl">{{ lab.why }}</div>{{ lines(2) }}
+    <div class="lbl" style="margin-top:1.5mm">{{ lab.steps }}</div>
+    {% for _ in range(g.goal_steps) %}<div class="ln rule" style="display:flex;align-items:center"><span class="cb"></span></div>{% endfor %}
+    <div style="display:flex;gap:4mm;margin-top:1.5mm"><div style="flex:1"><span class="lbl">{{ lab.deadline }}</span><div class="ln rule"></div></div><div style="flex:1"><span class="lbl">{{ lab.reward }}</span><div class="ln rule"></div></div></div>
+  </div>
+  {% endfor %}
+
+{% elif p.type == "notes" %}
+  {{ header(p) }}
+  {% set style = p.options.get("style", "lines") %}
+  {% if style == "lines" %}<div class="notes-area ruled">{{ lines(g.note_lines) }}</div>
+  {% elif style == "dots" %}<div class="notes-area dots"></div>
+  {% else %}<div class="notes-area squares"></div>{% endif %}
+{% endif %}
+{% if p.type != "cover" %}<div class="foot">{{ brand }} · {{ lab.personal_use }}</div>{% endif %}
+</section>
+{% endfor %}
+</body>
+</html>

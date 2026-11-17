@@ -1,0 +1,38 @@
+# Kit senza date: non scade mai, si vende tutto l'anno.
+line: kit-abitudini-budget
+category: tracker
+name:
+  it: Kit Abitudini e Budget
+  en: Habit & Budget Kit
+  es: Kit de Hábitos y Presupuesto
+subtitle:
+  it: Tracker senza date, da ristampare ogni mese
+  en: Undated trackers to reprint every month
+  es: Registros sin fecha para reimprimir cada mes
+audience:
+  it: chi vuole risparmiare e costruire buone abitudini
+  en: anyone who wants to save money and build better habits
+  es: quien quiere ahorrar y crear buenos hábitos
+keywords:
+  it: [habit tracker, budget mensile, planner finanze, tracker abitudini, stampabile pdf, risparmio]
+  en: [habit tracker, budget planner, monthly budget, finance planner, printable tracker, savings tracker]
+  es: [registro de hábitos, presupuesto mensual, planner finanzas, ahorro, imprimible pdf]
+pages:
+  - type: cover
+  - type: index
+  - type: goals
+  - type: habit
+  - type: budget
+    options:
+      categories:
+        it: [Affitto, Bollette, Spesa, Trasporti, Telefono e internet, Abbonamenti, Svago, Salute, Imprevisti, Risparmio]
+        en: [Rent, Utilities, Groceries, Transport, Phone & internet, Subscriptions, Fun, Health, Emergencies, Savings]
+        es: [Alquiler, Facturas, Compra, Transporte, Teléfono e internet, Suscripciones, Ocio, Salud, Imprevistos, Ahorro]
+  - type: daily
+  - type: checklist
+  - type: notes
+    options: {style: lines}
+themes: [minimal, sage, blush, ocean]
+langs: [it, en, es]
+sizes: [A4, Letter]
+price: {eur: 3.90, usd: 4.50}

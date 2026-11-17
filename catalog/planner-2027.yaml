@@ -1,0 +1,37 @@
+# Planner annuale datato 2027: 1 file = 6 temi x 3 lingue = 18 prodotti, ognuno in A4 + Letter + A5.
+line: planner
+category: planner
+year: 2027
+week_start: monday
+name:
+  it: Planner 2027
+  en: 2027 Planner
+  es: Agenda 2027
+subtitle:
+  it: Settimanale e mensile, con link interni
+  en: Weekly & monthly, hyperlinked
+  es: Semanal y mensual, con enlaces
+audience:
+  it: chi vuole organizzare lavoro, studio e vita personale in un unico planner
+  en: people who want to organize work, study and personal life in one planner
+  es: quien quiere organizar trabajo, estudio y vida personal en una sola agenda
+keywords:
+  it: [planner 2027, agenda 2027, planner settimanale, planner stampabile, agenda pdf, planner digitale, organizer, goodnotes]
+  en: [2027 planner, weekly planner, printable planner, digital planner, goodnotes planner, monthly planner, agenda 2027]
+  es: [agenda 2027, planificador semanal, agenda imprimible, planner digital, agenda pdf, organizador]
+pages:
+  - type: cover
+  - type: index
+  - type: year
+  - type: goals
+  - type: monthly
+  - type: weekly
+  - type: habit
+    repeat: 12
+  - type: notes
+    repeat: 6
+    options: {style: dots}
+themes: [minimal, sage, blush, ocean, terracotta, lavender]
+langs: [it, en, es]
+sizes: [A4, Letter, A5]
+price: {eur: 6.90, usd: 7.50}
